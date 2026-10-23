@@ -24,6 +24,12 @@ io.on('connection', function(socket){
   });
 });
 
-http.listen(port, function(){
-  console.log('listening on *:' + port);
-});
+// Se exportan las instancias para que las pruebas de integración puedan
+// levantar el mismo servidor en un puerto efímero y cerrarlo al terminar.
+if (require.main === module) {
+  http.listen(port, function(){
+    console.log('listening on *:' + port);
+  });
+}
+
+module.exports = { app: app, http: http, io: io };

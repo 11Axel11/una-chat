@@ -15,13 +15,16 @@
       #nombre, #m { display: inline-block;}
       #m {width: 69%; margin-right: 4px;}
       #nombre {width: 20%}
+      .media-preview { display: block; max-width: min(400px, 90vw); max-height: 400px; margin-top: 5px; border-radius: 4px; }
+      video.media-preview { height: auto; }
+      iframe.media-preview { width: min(560px, 90vw); height: min(315px, 50vw); border: 0; }
     </style>
   </head>
   <body>
     <ul id="messages"></ul>
     <form action="">
       <input id="nombre" autocomplete="off" placeholder="Username"/>
-      <input id="m" autocomplete="off" placeholder="Escriba un mensaje" /><button>Send</button>
+      <input id="m" autocomplete="off" placeholder="Escriba un mensaje o pegue una URL" /><button>Send</button>
     </form>
     <script src="https://cdn.socket.io/4.7.2/socket.io.js"></script>
     <script src="https://code.jquery.com/jquery-1.11.1.js"></script>
@@ -63,10 +66,60 @@
 
         socket.on('Evento-Mensaje-Server', function(msg){
             var msgJson = JSON.parse(msg);
-            var mensajeDisplay = "<b style='color:"+ msgJson.color +"'>" + msgJson.nombre + "</b>: " + msgJson.mensaje;
-            $('#messages').append($('<li>').html(mensajeDisplay));
+            var item = document.createElement('li');
+            var author = document.createElement('b');
+            author.textContent = msgJson.nombre || 'Anónimo';
+            author.style.color = msgJson.color || '#000';
+            item.appendChild(author);
+            item.appendChild(document.createTextNode(': '));
+            renderMessage(item, msgJson);
+            $('#messages').append(item);
             window.scrollTo(0, document.body.scrollHeight);
         });
+
+        function renderMessage(container, message) {
+            var url = typeof message.mensaje === 'string' ? message.mensaje : '';
+            if (message.tipo === 'imagen') {
+                var image = document.createElement('img');
+                image.className = 'media-preview';
+                image.src = url;
+                image.alt = 'Imagen compartida';
+                image.loading = 'lazy';
+                container.appendChild(image);
+            } else if (message.tipo === 'video') {
+                var youtubeId = getYouTubeId(url);
+                if (youtubeId) {
+                    var frame = document.createElement('iframe');
+                    frame.className = 'media-preview';
+                    frame.src = 'https://www.youtube.com/embed/' + encodeURIComponent(youtubeId);
+                    frame.title = 'Video compartido';
+                    frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+                    frame.allowFullscreen = true;
+                    container.appendChild(frame);
+                } else {
+                    var video = document.createElement('video');
+                    video.className = 'media-preview';
+                    video.src = url;
+                    video.controls = true;
+                    video.preload = 'metadata';
+                    container.appendChild(video);
+                }
+            } else {
+                container.appendChild(document.createTextNode(url));
+            }
+        }
+
+        function getYouTubeId(url) {
+            try {
+                var parsed = new URL(url);
+                var host = parsed.hostname.toLowerCase().replace(/^www\./, '');
+                if (host === 'youtu.be') return parsed.pathname.slice(1).split('/')[0] || null;
+                if (host !== 'youtube.com' && host !== 'm.youtube.com') return null;
+                if (parsed.pathname === '/watch') return parsed.searchParams.get('v');
+                if (/^\/(embed|v)\//.test(parsed.pathname)) return parsed.pathname.split('/')[2] || null;
+            } catch (e) {}
+            return null;
+        }
 
       });
     </script>
